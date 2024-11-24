@@ -3,10 +3,10 @@
     {
         "kernelSource": {
             "name": "PE12",
-            "repo": "https://github.com/PixelExperience-Devices/kernel_xiaomi_phoenix",
-            "branch": "twelve",
+            "repo": "https://github.com/wcedla/kernel_xiaomi_sm8250_immens1ty_mod",
+            "branch": "android14-stable-mod",
             "device": "phoenix",
-            "defconfig": "vendor/phoenix_defconfig"
+            "defconfig": "lmi_defconfig"
           },
           "toolchains": [
           {
@@ -45,7 +45,7 @@
             "branch": "master"
         }
           },
-          "enableKernelSU": true,
+          "enableKernelSU": false,
           "enableLXC": false
     }
 ]
