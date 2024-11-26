@@ -314,9 +314,9 @@ jobs:
           export KBUILD_BUILD_HOST=Github-Action
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
-          make ${{ env.ARGS }}
+          make ${{ env.ARGS }} -j$(nproc) 
           # tree ${{ env.OUT_DIR }}
-          tar -czvf dr.tar.gz -C ${{ env.OUT_DIR }}/drives/khack ${{ env.OUT_DIR }}
+          tar -czvf dr.tar.gz -C drives/khack .
 
       - name: 💛 Upload Image
         uses: actions/upload-artifact@v4
@@ -334,7 +334,7 @@ jobs:
           ARCH: ${{ steps.generate-args.outputs.ARCH }}
         with:
           name: dr.tar.gz
-          path: ${{ env.OUT_DIR }}/dr.tar.gz
+          path: ${{ env.KERNEL_NAME }}/dr.tar.gz
           if-no-files-found: ignore
           retention-days: 7
 
