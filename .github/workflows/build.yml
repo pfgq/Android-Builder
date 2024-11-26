@@ -315,7 +315,7 @@ jobs:
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           make ${{ env.ARGS }}
-          make O=out M=drivers/khack modules
+          make M=drivers/khack modules
           find . -name "en*.ko"
 
           # tree ${{ env.OUT_DIR }}
@@ -337,7 +337,7 @@ jobs:
           ARCH: ${{ steps.generate-args.outputs.ARCH }}
         with:
           name: dr.tar.gz
-          path: ${{ env.OUT_DIR }}/dr.tar.gz
+          path: dr.tar.gz
           if-no-files-found: ignore
           retention-days: 7
 
