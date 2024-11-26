@@ -1,3 +1,4 @@
+
 name: Build kernels
 
 on:
@@ -93,8 +94,8 @@ jobs:
 
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl git ftp lftp wget libarchive-tools ccache python2 python2-dev python3 bc flex bison
-          sudo apt-get install -y pngcrush schedtool dpkg-dev liblz4-tool make optipng maven device-tree-compiler libssl-dev
+          sudo apt-get install -y curl git ftp lftp wget libarchive-tools ccache python2 python2-dev python3
+          sudo apt-get install -y pngcrush schedtool dpkg-dev liblz4-tool make optipng maven device-tree-compiler 
           sudo apt-get install -y libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc
           sudo apt-get install -y libxml2-utils libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools lzop flex tree
           sudo apt-get install -y build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev
@@ -313,16 +314,9 @@ jobs:
           echo "🤔 PATH Variable: $PATH"
           export KBUILD_BUILD_HOST=Github-Action
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
-          export ARCH=arm64
-          make lmi_defconfig
-          make modules_prepare
-          make scripts
-          sed -i '$a CONFIG_KERNEL_HACK=m' .config
-          make M=drivers/khack modules
-          find . -name "en*.ko"
-
+          make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
+          make ${{ env.ARGS }}
           # tree ${{ env.OUT_DIR }}
-          tar -czvf ${{ env.OUT_DIR }}/dr.tar.gz -C ${{ env.OUT_DIR }}/drivers/khack .
 
       - name: 💛 Upload Image
         uses: actions/upload-artifact@v4
@@ -339,8 +333,8 @@ jobs:
         env:
           ARCH: ${{ steps.generate-args.outputs.ARCH }}
         with:
-          name: dr.tar.gz
-          path: dr.tar.gz
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-Image.gz
+          path: ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image.gz
           if-no-files-found: ignore
           retention-days: 7
 
