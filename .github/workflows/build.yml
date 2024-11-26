@@ -316,7 +316,7 @@ jobs:
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           make ${{ env.ARGS }} -j$(nproc) 
           # tree ${{ env.OUT_DIR }}
-          tar -czvf dr.tar.gz -C drives/khack .
+          tar -czvf ${{ env.OUT_DIR }}/dr.tar.gz -C ${{ env.OUT_DIR }}/drivers/khack .
 
       - name: 💛 Upload Image
         uses: actions/upload-artifact@v4
@@ -334,7 +334,7 @@ jobs:
           ARCH: ${{ steps.generate-args.outputs.ARCH }}
         with:
           name: dr.tar.gz
-          path: ${{ env.KERNEL_NAME }}/dr.tar.gz
+          path: ${{ env.OUT_DIR }}/dr.tar.gz
           if-no-files-found: ignore
           retention-days: 7
 
