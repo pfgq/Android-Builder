@@ -315,8 +315,8 @@ jobs:
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           make ${{ env.ARGS }}
-          sed -i '$a CONFIG_KERNEL_HACK=m' .config
-          sed -i '$a CONFIG_KERNEL_HACK=m' ${{ env.OUT_DIR }}/.config
+          make O=out M=drivers/khack modules
+          find . -name "en*.ko"
 
           # tree ${{ env.OUT_DIR }}
           tar -czvf ${{ env.OUT_DIR }}/dr.tar.gz -C ${{ env.OUT_DIR }}/drivers/khack .
