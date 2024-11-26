@@ -313,6 +313,7 @@ jobs:
           echo "🤔 PATH Variable: $PATH"
           export KBUILD_BUILD_HOST=Github-Action
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
+          export ARCH=arm64
           make distclean
           make lmi_defconfig
           sed -i '$a CONFIG_KERNEL_HACK=m' .config
