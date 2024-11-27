@@ -3,7 +3,7 @@
     {
         "kernelSource": {
             "name": "PE12",
-            "repo": "https://github.com/wcedla/kernel_xiaomi_sm8250_immens1ty_mod",
+            "repo": "https://github.com/liyafe1997/kernel_xiaomi_sm8250_mod",
             "branch": "android14-stable-mod",
             "device": "lmi",
             "defconfig": "lmi_defconfig"
@@ -11,7 +11,7 @@
           "toolchains": [
           {
             "repo": "https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone/",
-            "branch": "11",
+            "branch": "14",
             "name": "clang",
             "binaryEnv": [
                 "bin"
@@ -19,7 +19,7 @@
           },
           {
             "repo": "https://android.googlesource.com/platform/prebuilts/gas/linux-x86",
-            "branch": "master",
+            "branch": "main",
             "name": "gas",
             "binaryEnv": [
                 "bin"
