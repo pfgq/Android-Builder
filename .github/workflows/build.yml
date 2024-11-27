@@ -364,7 +364,7 @@ jobs:
           sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-mp-42-02-0b-dsc-cmd.dtsi
 
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
-          scripts/config --file out/.config \
+          scripts/config --file ${{ env.OUT_DIR }}.config \
             --set-str STATIC_USERMODEHELPER_PATH /system/bin/micd \
             -e PERF_CRITICAL_RT_TASK \
             -e SF_BINDER \
