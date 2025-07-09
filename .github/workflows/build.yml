@@ -33,7 +33,7 @@ jobs:
 
   Build-Kernel:
     name: "🐎 Build kernel"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu:18.04
     needs:
       - Read-configuration
     strategy:
