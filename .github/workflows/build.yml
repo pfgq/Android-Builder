@@ -362,6 +362,10 @@ jobs:
           sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-42-02-0b-dsc-cmd.dtsi
           sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-p2-1-42-02-0b-dsc-cmd.dtsi
           sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-mp-42-02-0b-dsc-cmd.dtsi
+          #关闭zram
+          sed -i '/^CONFIG_ZRAM/d;/^CONFIG_ZRAM_WRITEBACK/d' arch/arm64/configs/lmi_defconfig
+          echo '# CONFIG_ZRAM is not set' >> arch/arm64/configs/lmi_defconfig
+          echo '# CONFIG_ZRAM_WRITEBACK is not set' >> arch/arm64/configs/lmi_defconfig
 
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
