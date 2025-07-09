@@ -1,0 +1,481 @@
+
+name: Build kernels
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 11 * * 0"
+
+jobs:
+  Read-configuration:
+    name: 🐂 Parse *.config.json
+    runs-on: ubuntu-latest
+    outputs:
+      CONFIGS: ${{ steps.generate-matrix.outputs.CONFIGS }}
+      BUILD_DATE: ${{ steps.generate-builddate.outputs.BUILDDATE }}
+    steps:
+      # This action checks-out your CONFIGSitory under $GITHUB_WORKSPACE, so your workflow can access it.
+      - name: 😄 Checkout
+        uses: actions/checkout@v4
+
+      # Match the configuration files in the CONFIGS directory, read the contents and merge them into an array.
+      - name: 😆 Generate Matrix
+        id: generate-matrix
+        run: |
+          echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
+          jq -s '[.[][]]' configs/*.config.json >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # Set compile time.
+      - name: ⏰ Set builddate
+        id: generate-builddate
+        run: echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+  Build-Kernel:
+    name: "🐎 Build kernel"
+    runs-on: ubuntu-latest
+    needs:
+      - Read-configuration
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        CONFIG: ${{ fromJSON(needs.Read-configuration.outputs.CONFIGS) }}
+    env:
+      # Basic configuration
+      WORKSPACE: ${{ github.workspace }}
+      BUILD_DATE: "${{ needs.Read-configuration.outputs.BUILD_DATE }}"
+
+      # Kernel source configuration
+      KERNEL_NAME: ${{ matrix.CONFIG.kernelSource.name }}
+      KERNEL_REPO: ${{ matrix.CONFIG.kernelSource.repo }}
+      KERNEL_BRANCH: ${{ matrix.CONFIG.kernelSource.branch }}
+      KERNEL_DEVICE: ${{ matrix.CONFIG.kernelSource.device }}
+      KERNEL_DEFCONFIG_PATH: ${{ matrix.CONFIG.kernelSource.defconfig }}
+
+      # Whether to use ccache to speed up compilation
+      ENABLE_CCACHE: ${{ matrix.CONFIG.enableCcache }}
+
+      # Whether to use ANYKERNEL3 packaged flash package
+      USE_ANYKERNEL3: ${{ matrix.CONFIG.AnyKernel3.use }}
+
+      # Whether to publish
+      CONFIRM_RELEASE: ${{ matrix.CONFIG.AnyKernel3.release }}
+
+      # Whether to enable KernelSU
+      ENABLE_KERNELSU: ${{ matrix.CONFIG.enableKernelSU }}
+
+      # Whether to enable LXC docker
+      ENABLE_LXC: ${{ matrix.CONFIG.enableLXC }}
+
+      # Set output & ccache directory
+      OUT_DIR: "${{ github.workspace }}/out"
+      CCACHE_DIR: "${{ github.workspace }}/out"
+    steps:
+      # Set swap space
+      - name: 📐 Maximize build space & Set swap to 10G
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 2048
+          temp-reserve-mb: 1024
+          swap-size-mb: 10240
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      # This action checks-out your CONFIGSitory under $GITHUB_WORKSPACE, so your workflow can access it.
+      - name: 😄 Checkout
+        uses: actions/checkout@v4
+
+      # Install prerequisites for Ubuntu
+      - name: ⭐ Install prerequisites
+
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl git ftp lftp wget libarchive-tools ccache python2 python2-dev python3
+          sudo apt-get install -y pngcrush schedtool dpkg-dev liblz4-tool make optipng maven device-tree-compiler 
+          sudo apt-get install -y libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc
+          sudo apt-get install -y libxml2-utils libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools lzop flex tree
+          sudo apt-get install -y build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev
+          sudo apt-get install -y pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl 
+          sudo apt-get install -y zip unzip tar gzip bzip2 rar unrar llvm g++-multilib bison gperf zlib1g-dev automake
+      # Cache apt
+      - name: Cache apt dependencies(for linux)
+        if: false
+        uses: awalsh128/cache-apt-pkgs-action@latest 
+        with: 
+          packages: curl git ftp lftp wget libarchive-tools ccache python2 python2-dev python3 pngcrush schedtool dpkg-dev liblz4-tool make optipng maven device-tree-compiler libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc libxml2-utils libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools lzop flex tree build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl zip unzip tar gzip bzip2 rar unrar llvm g++-multilib bison gperf zlib1g-dev automake
+          execute_install_scripts: true
+      # Initialize ccache
+      - name: 🚄 Setup ccache
+        if: ${{ env.ENABLE_CCACHE == 'true' }}
+        id: hash
+        run: |
+          # Create output directory
+          mkdir -p ${{ env.OUT_DIR }}
+
+          # Initialize ccache
+          ccache -o compression=false -o cache_dir=${{ env.CCACHE_DIR }}
+
+          # Generate configuration's hash
+          echo $(echo -n '${{ toJSON(matrix.config) }}' | openssl dgst -sha1 | awk '{print $2}')
+          echo "HASH=$(echo -n '${{ toJSON(matrix.config) }}' | openssl dgst -sha1 | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: 🚅 Cache ccache & output
+        env:
+          HASH: ${{ steps.hash.outputs.HASH }}
+        if: ${{ env.ENABLE_CCACHE == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.OUT_DIR }}
+            ${{ env.CCACHE_DIR }}
+          key: cache-${{ env.KERNEL_NAME }}-${{env.HASH}}-${{ env.BUILD_DATE }}
+          restore-keys: |
+            cache-${{ env.KERNEL_NAME }}-${{env.HASH}}-${{ env.BUILD_DATE }}
+            cache-${{ env.KERNEL_NAME }}-${{env.HASH}}-
+            cache-${{ env.KERNEL_NAME }}-
+
+      - name: 🌟 Clone kernel source => (${{ env.KERNEL_REPO }})
+        run: |
+          git clone --recursive --depth=1 -j $(nproc) --branch ${{ env.KERNEL_BRANCH }} ${{ env.KERNEL_REPO }} ${{ env.KERNEL_NAME }}
+          # tree ${{ env.KERNEL_NAME }}
+
+      - name: 💫 Get toolchains
+        env:
+          toolchains: "${{ toJSON(matrix.CONFIG.toolchains) }}"
+        run: |
+          toolchains_num="$(echo $toolchains | jq 'length')"
+          echo "🤔 There is $toolchains_num defined toolchains."
+
+          for ((i=0;i<toolchains_num;i++)); do
+            toolchain=$(echo $toolchains | jq -r ".[$i]")
+
+            toolchain_name=$(echo $toolchain | jq -r ".name")
+            
+            # From archive
+            if echo $toolchain | jq -e 'has("url")' > /dev/null; then
+              # If from archive
+              toolchain_url=$(echo $toolchain | jq -r ".url")
+              mkdir -p "$toolchain_name"
+
+              # Download archive
+              wget "$toolchain_url"
+
+              # Get filename
+              filename="${toolchain_url##*/}"
+              case "$filename" in
+                *.zip)
+                  unzip -d $toolchain_name "$filename"
+                  ;;
+                *.tar)
+                  tar xvf "$filename" -C $toolchain_name
+                  ;;
+                *.tar.gz)
+                  tar zxvf "$filename" -C $toolchain_name
+                  ;;
+                *.rar)
+                  unrar x "$filename" $toolchain_name
+                  ;;
+                *)
+                  echo "unknown file type: $filename"
+                  ;;
+              esac
+              # Delete file to avoid duplicate name conflicts 
+              rm $filename
+
+              echo "🤔 Download $toolchain_name => ($toolchain_url)"
+            else
+              # If from git
+              toolchain_repo=$(echo $toolchain | jq -r ".repo")
+              toolchain_branch=$(echo $toolchain | jq -r ".branch")
+              git clone --recursive --depth=1 -j $(nproc) --branch $toolchain_branch $toolchain_repo $toolchain_name
+
+              echo "🤔 Clone $toolchain_name => ($toolchain_repo)"
+            fi
+
+            jq -r ".binaryEnv[] | tostring" <<< "$toolchain" | while read -r subPath; do
+              echo "${{ env.WORKSPACE }}/$toolchain_name/$subPath" >> $GITHUB_PATH
+            done
+          done
+
+      - name: 😎 Set build args
+        id: generate-args
+        env:
+          PARAMS: "${{ toJSON(matrix.CONFIG.params) }}"
+          THREAD: $(nproc --all)
+        run: |
+          echo "🤔 PATH Variable: $PATH"
+
+          ARCH=$(echo $PARAMS | jq -r ".ARCH")
+          CC=$(echo $PARAMS | jq -r ".CC")
+
+          args="-j${{ env.THREAD }} O=${{ env.OUT_DIR }} ARCH=$ARCH"
+          if [ -n "$CC" ]; then
+
+            if [[ "$CC" == *"/"* ]]; then
+              CC=${{ env.WORKSPACE }}/$CC
+            fi
+
+            if [ ${{ env.ENABLE_CCACHE }} = true ]; then
+              args="$args CC=\"ccache $CC\""
+            else
+              args="$args CC=$CC"
+            fi
+          fi
+          while read -r externalCommand; do
+            key=$(echo "$externalCommand" | cut -d= -f1)
+            value=$(echo "$externalCommand" | cut -d= -f2)
+            if [[ "$value" == *"/"* ]]; then
+              value="${{ env.WORKSPACE }}/$value"
+            fi
+            args="$args $key=$value"
+          done < <(jq -r '.externalCommands | to_entries[] | "\(.key)=\(.value)"' <<< "$PARAMS")
+
+          echo "ARCH=$ARCH" >> $GITHUB_OUTPUT
+          echo "ARGS=$args" >> $GITHUB_OUTPUT
+
+          echo "🤔 $args"
+
+      - name: 😋 Setup KernelSU
+        working-directory: ${{ env.KERNEL_NAME }}
+        env:
+          ARCH: ${{ steps.generate-args.outputs.ARCH }}
+        if: ${{ env.ENABLE_KERNELSU == 'true' }}
+        run: |
+          # Delete old KernelSU
+          if [ -d "./KernelSU" ]; then
+            rm -rf "./KernelSU"
+          fi
+          if [ -d "./drivers/kernelsu" ]; then
+            rm -rf "./drivers/kernelsu"
+          fi
+
+          # Apply new KernelSU patches
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
+
+          echo -e "# CONFIG_KPROBES is not set" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
+          echo -e "# CONFIG_HAVE_KPROBES is not set" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
+          echo -e "# CONFIG_KPROBE_EVENTS is not set" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
+
+          cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
+
+      - name: 😋 Setup LXC docker
+        working-directory: ${{ env.KERNEL_NAME }}
+        env:
+          DEFCONFIG: ${{ env.WORKSPACE }}/${{ env.KERNEL_NAME }}/arch/${{ steps.generate-args.outputs.ARCH }}/configs/${{env.KERNEL_DEFCONFIG_PATH}}
+          ADD_DEFCONFIG: ${{ env.WORKSPACE }}/LXC/LXC_defconfig
+        if: ${{ env.ENABLE_LXC == 'true' }}
+        run: |
+          # Add configuration
+          for config in $(cat ${{ env.ADD_DEFCONFIG }})
+          do
+            echo $i >> ${{ env.DEFCONFIG }}
+          done
+
+          # Apply patch
+          if [ -f kernel/cgroup.c ]; then
+            row=$(sed -n -e '/^static int cgroup_add_file/=' kernel/cgroup.c)
+            touch /tmp/tmp.txt
+            sed -n -e '/static int cgroup_add_file/,/return 0/p' kernel/cgroup.c >> /tmp/tmp.txt
+            row2=$(sed -n -e '/return 0/=' /tmp/tmp.txt)
+            row3=$(echo `expr $row + $row2 - 1`)
+            sed -i "$row3 i\        }" kernel/cgroup.c
+            sed -i "$row3 i\                kernfs_create_link(cgrp->kn, name, kn);" kernel/cgroup.c
+            sed -i "$row3 i\                snprintf(name, CGROUP_FILE_NAME_MAX, \"%s.%s\", cft->ss->name, cft->name);" kernel/cgroup.c
+            sed -i "$row3 i\        if (cft->ss && (cgrp->root->flags & CGRP_ROOT_NOPREFIX) && !(cft->flags & CFTYPE_NO_PREFIX)) {" kernel/cgroup.c
+            echo "🎖️ Modify kernel/cgroup.c"
+          fi
+          if [ -f kernel/cgroup/cgroup.c ]; then
+            row=$(sed -n -e '/^static int cgroup_add_file/=' kernel/cgroup/cgroup.c)
+            touch /tmp/tmp.txt
+            sed -n -e '/static int cgroup_add_file/,/return 0/p' kernel/cgroup/cgroup.c >> /tmp/tmp.txt
+            row2=$(sed -n -e '/return 0/=' /tmp/tmp.txt)
+            row3=$(echo `expr $row + $row2 - 1`)
+            sed -i "$row3 i\        }" kernel/cgroup/cgroup.c
+            sed -i "$row3 i\                kernfs_create_link(cgrp->kn, name, kn);" kernel/cgroup/cgroup.c
+            sed -i "$row3 i\                snprintf(name, CGROUP_FILE_NAME_MAX, \"%s.%s\", cft->ss->name, cft->name);" kernel/cgroup/cgroup.c
+            sed -i "$row3 i\        if (cft->ss && (cgrp->root->flags & CGRP_ROOT_NOPREFIX) && !(cft->flags & CFTYPE_NO_PREFIX)) {" kernel/cgroup/cgroup.c
+            echo "🎖️ Modify kernel/cgroup/cgroup.c"
+          fi
+          if [ -f android-kernel/net/netfilter/xt_qtaguid.c ]; then
+            git am -s < ${{ env.WORKSPACE }}/LXC/Patches/xt_qtaguid.patch
+            echo "🎖️ Apply xt_qtaguid.patch"
+          fi
+
+      - name: 👍 Start building the kernel
+        working-directory: ${{ env.KERNEL_NAME }}
+        env:
+          ARGS: ${{ steps.generate-args.outputs.ARGS }}
+        run: |
+          curl -LSs "https://github.com/pfgq/Kernel_driver_hack/raw/refs/heads/main/kernel/setup.sh" | bash
+          echo "🤔 PATH Variable: $PATH"
+          export KBUILD_BUILD_HOST=Github-Action
+          export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
+
+          dts_source=arch/arm64/boot/dts/vendor/qcom
+
+          # Backup dts
+          cp -a ${dts_source} .dts.bak
+
+          # Correct panel dimensions on MIUI builds
+          sed -i 's/<154>/<1537>/g' ${dts_source}/dsi-panel-j1s*
+          sed -i 's/<154>/<1537>/g' ${dts_source}/dsi-panel-j2*
+          sed -i 's/<155>/<1544>/g' ${dts_source}/dsi-panel-j3s-37-02-0a-dsc-video.dtsi
+          sed -i 's/<155>/<1545>/g' ${dts_source}/dsi-panel-j11-38-08-0a-fhd-cmd.dtsi
+          sed -i 's/<155>/<1546>/g' ${dts_source}/dsi-panel-k11a-38-08-0a-dsc-cmd.dtsi
+          sed -i 's/<155>/<1546>/g' ${dts_source}/dsi-panel-l11r-38-08-0a-dsc-cmd.dtsi
+          sed -i 's/<70>/<695>/g' ${dts_source}/dsi-panel-j11-38-08-0a-fhd-cmd.dtsi
+          sed -i 's/<70>/<695>/g' ${dts_source}/dsi-panel-j3s-37-02-0a-dsc-video.dtsi
+          sed -i 's/<70>/<695>/g' ${dts_source}/dsi-panel-k11a-38-08-0a-dsc-cmd.dtsi
+          sed -i 's/<70>/<695>/g' ${dts_source}/dsi-panel-l11r-38-08-0a-dsc-cmd.dtsi
+          sed -i 's/<71>/<710>/g' ${dts_source}/dsi-panel-j1s*
+          sed -i 's/<71>/<710>/g' ${dts_source}/dsi-panel-j2*
+
+          # Enable back mi smartfps while disabling qsync min refresh-rate
+          sed -i 's/\/\/ mi,mdss-dsi-pan-enable-smart-fps/mi,mdss-dsi-pan-enable-smart-fps/g' ${dts_source}/dsi-panel*
+          sed -i 's/\/\/ mi,mdss-dsi-smart-fps-max_framerate/mi,mdss-dsi-smart-fps-max_framerate/g' ${dts_source}/dsi-panel*
+          sed -i 's/\/\/ qcom,mdss-dsi-pan-enable-smart-fps/qcom,mdss-dsi-pan-enable-smart-fps/g' ${dts_source}/dsi-panel*
+          sed -i 's/qcom,mdss-dsi-qsync-min-refresh-rate/\/\/qcom,mdss-dsi-qsync-min-refresh-rate/g' ${dts_source}/dsi-panel*
+
+          # Enable back refresh rates supported on MIUI
+          sed -i 's/120 90 60/120 90 60 50 30/g' ${dts_source}/dsi-panel-g7a-36-02-0c-dsc-video.dtsi
+          sed -i 's/120 90 60/120 90 60 50 30/g' ${dts_source}/dsi-panel-g7a-37-02-0a-dsc-video.dtsi
+          sed -i 's/120 90 60/120 90 60 50 30/g' ${dts_source}/dsi-panel-g7a-37-02-0b-dsc-video.dtsi
+          sed -i 's/144 120 90 60/144 120 90 60 50 48 30/g' ${dts_source}/dsi-panel-j3s-37-02-0a-dsc-video.dtsi
+
+          # Enable back brightness control from dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 03 51 03 FF/39 00 00 00 00 00 03 51 03 FF/g' ${dts_source}/dsi-panel-j9-38-0a-0a-fhd-video.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 03 51 0D FF/39 00 00 00 00 00 03 51 0D FF/g' ${dts_source}/dsi-panel-j2-p2-1-38-0c-0a-dsc-cmd.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 05 51 0F 8F 00 00/39 00 00 00 00 00 05 51 0F 8F 00 00/g' ${dts_source}/dsi-panel-j1s-42-02-0a-dsc-cmd.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 05 51 0F 8F 00 00/39 00 00 00 00 00 05 51 0F 8F 00 00/g' ${dts_source}/dsi-panel-j1s-42-02-0a-mp-dsc-cmd.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 05 51 0F 8F 00 00/39 00 00 00 00 00 05 51 0F 8F 00 00/g' ${dts_source}/dsi-panel-j2-mp-42-02-0b-dsc-cmd.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 05 51 0F 8F 00 00/39 00 00 00 00 00 05 51 0F 8F 00 00/g' ${dts_source}/dsi-panel-j2-p2-1-42-02-0b-dsc-cmd.dtsi
+          sed -i 's/\/\/39 00 00 00 00 00 05 51 0F 8F 00 00/39 00 00 00 00 00 05 51 0F 8F 00 00/g' ${dts_source}/dsi-panel-j2s-mp-42-02-0a-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 00 00/39 01 00 00 00 00 03 51 00 00/g' ${dts_source}/dsi-panel-j2-38-0c-0a-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 00 00/39 01 00 00 00 00 03 51 00 00/g' ${dts_source}/dsi-panel-j2-38-0c-0a-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 03 FF/39 01 00 00 00 00 03 51 03 FF/g' ${dts_source}/dsi-panel-j11-38-08-0a-fhd-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 03 FF/39 01 00 00 00 00 03 51 03 FF/g' ${dts_source}/dsi-panel-j9-38-0a-0a-fhd-video.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j1u-42-02-0b-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-42-02-0b-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-p2-1-42-02-0b-dsc-cmd.dtsi
+          sed -i 's/\/\/39 01 00 00 00 00 03 51 07 FF/39 01 00 00 00 00 03 51 07 FF/g' ${dts_source}/dsi-panel-j2-mp-42-02-0b-dsc-cmd.dtsi
+
+          make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
+          scripts/config --file ${{ env.OUT_DIR }}/.config \
+            --set-str STATIC_USERMODEHELPER_PATH /system/bin/micd \
+            -e PERF_CRITICAL_RT_TASK \
+            -e SF_BINDER \
+            -e OVERLAY_FS \
+            -d DEBUG_FS \
+            -e MIGT \
+            -e MIGT_ENERGY_MODEL \
+            -e MIHW \
+            -e PACKAGE_RUNTIME_INFO \
+            -e BINDER_OPT \
+            -e KPERFEVENTS \
+            -e MILLET \
+            -e PERF_HUMANTASK \
+            -d LTO_CLANG \
+            -d LOCALVERSION_AUTO \
+            -e SF_BINDER \
+            -e XIAOMI_MIUI \
+            -d MI_MEMORY_SYSFS \
+            -e TASK_DELAY_ACCT \
+            -e MIUI_ZRAM_MEMORY_TRACKING \
+            -d CONFIG_MODULE_SIG_SHA512 \
+            -d CONFIG_MODULE_SIG_HASH \
+            -e MI_FRAGMENTION \
+            -e PERF_HELPER \
+            -e BOOTUP_RECLAIM \
+            -e MI_RECLAIM \
+            -e RTMM
+          make ${{ env.ARGS }} scripts
+          make ${{ env.ARGS }} modules_prepare
+          make ${{ env.ARGS }}
+
+
+          
+
+      - name: 💛 Upload Image
+        uses: actions/upload-artifact@v4
+        env:
+          ARCH: ${{ steps.generate-args.outputs.ARCH }}
+        with:
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-Image
+          path: ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: ☢️ Upload output directory
+        uses: actions/upload-artifact@v4
+        env:
+          ARCH: ${{ steps.generate-args.outputs.ARCH }}
+        with:
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-Output
+          path: ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/
+          retention-days: 7
+
+      - name: ⏰ Pack Anykernel3
+        if: ${{ env.USE_ANYKERNEL3 == 'true' }}
+        env:
+          PARAMS: "${{ toJSON(matrix.CONFIG.AnyKernel3) }}"
+          ARCH: ${{ steps.generate-args.outputs.ARCH }}
+          ANYKERNEL3_FILE: "${{ env.WORKSPACE }}/AnyKernel3-${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}"
+        run: |
+          if echo -n '${{ env.PARAMS }}' | jq -e 'has("custom")' > /dev/null; then
+            CUSTOM_ANYKERNEL3=$(echo -n '${{ env.PARAMS }}' | jq -r ".custom")
+            ANYKERNEL_REPO=$(echo $CUSTOM_ANYKERNEL3 | jq -r ".repo")
+            ANYKERNEL_BRANCH=$(echo $CUSTOM_ANYKERNEL3 | jq -r ".branch")
+            git clone --recursive --depth=1 -j $(nproc) --branch $ANYKERNEL_BRANCH $ANYKERNEL_REPO AnyKernel3
+            echo "🤔 Use custom AnyKernel3 => ($ANYKERNEL_REPO)"
+          else
+            git clone --recursive --depth=1 -j $(nproc) https://github.com/osm0sis/AnyKernel3 AnyKernel3
+            echo "🤔 Use origin Anykernel3 => (https://github.com/osm0sis/AnyKernel3)"
+          fi
+
+
+          if [ -e "${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image.gz-dtb" ]; then
+            cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image.gz-dtb ./AnyKernel3/
+            cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/dtbo.img ./AnyKernel3/
+          else
+            if [ -e "${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image" ]; then
+              cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image ./AnyKernel3/
+            fi
+            if [ -e "${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image.gz" ]; then
+              cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/Image.gz ./AnyKernel3/
+            fi
+            if [ -e "${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/dtbo" ]; then
+              cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/dtbo ./AnyKernel3/
+            fi
+            if [ -e "${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/dtbo.img" ]; then
+              cp -f ${{ env.OUT_DIR }}/arch/${{ env.ARCH }}/boot/dtbo.img ./AnyKernel3/
+            fi
+          fi
+
+          rm -rf AnyKernel3/.git* AnyKernel3/README.md
+          cd AnyKernel3/
+          zip -q -r "${{ env.ANYKERNEL3_FILE }}.zip" *
+
+      - name: "💾 Upload AnyKernel3 image => (${{ env.BUILD_DATE }})"
+        env:
+          ANYKERNEL3_FILE: "AnyKernel3-${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}"
+        uses: actions/upload-artifact@v4
+        if: ${{ env.USE_ANYKERNEL3 == 'true' }}
+        with:
+          name: "${{ env.ANYKERNEL3_FILE }}"
+          path: AnyKernel3/*
+
+      - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
+        env:
+          ANYKERNEL3_FILE: "${{ env.WORKSPACE }}/AnyKernel3-${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}"
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        if: ${{ env.USE_ANYKERNEL3 == 'true' && env.CONFIRM_RELEASE == 'true' }}
+        with:
+          tag_name: v${{ env.BUILD_DATE }}.${{ github.run_number }}
+          files: "${{ env.ANYKERNEL3_FILE }}.zip"
+          body: "[Kernelname]:仅带ksu [Kernelname]-both:带ksu+LXC docker"
+          generate_release_notes: false
