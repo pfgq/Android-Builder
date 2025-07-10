@@ -472,8 +472,12 @@ jobs:
           name: "${{ env.ANYKERNEL3_FILE }}"
           path: |
             AnyKernel3/*
-            /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/entry.ko
-      
+      - name: 上传 entry.ko
+        uses: actions/upload-artifact@v4
+        with:
+          name: entry.ko
+          path: /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/*
+            
 
       - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
         env:
