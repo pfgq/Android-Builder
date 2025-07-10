@@ -472,7 +472,7 @@ jobs:
           name: "${{ env.ANYKERNEL3_FILE }}"
           path: |
             AnyKernel3/*
-            /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/hack.ko
+            /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/entry.ko
       
 
       - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
