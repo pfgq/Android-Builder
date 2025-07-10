@@ -476,8 +476,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: entry.ko
-          path: /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/*
-            
+          path: ${{ env.OUT_DIR }}/drivers/khack/*
 
       - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
         env:
