@@ -470,7 +470,10 @@ jobs:
         if: ${{ env.USE_ANYKERNEL3 == 'true' }}
         with:
           name: "${{ env.ANYKERNEL3_FILE }}"
-          path: AnyKernel3/*
+          path: |
+            AnyKernel3/*
+            /home/runner/work/Android-Builder/Android-Builder/k30p/drivers/khack/hack.ko
+      
 
       - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
         env:
