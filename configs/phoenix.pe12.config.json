@@ -11,7 +11,7 @@
           "toolchains": [
           {
             "repo": "https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone/",
-            "branch": "15",
+            "branch": "18",
             "name": "clang",
             "binaryEnv": [
                 "bin"
