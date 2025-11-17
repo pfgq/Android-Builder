@@ -45,7 +45,7 @@
             "branch": "master"
         }
           },
-          "enableKernelSU": true,
+          "enableKernelSU": false,
           "enableLXC": false
     }
 ]
