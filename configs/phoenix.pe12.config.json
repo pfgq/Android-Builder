@@ -18,8 +18,8 @@
             ]
           },
           {
-            "repo": "https://android.googlesource.com/platform/prebuilts/gas/linux-x86",
-            "branch": "main",
+            "repo": "https://github.com/kdrag0n/proton-clang",
+            "branch": "master",
             "name": "gas",
             "binaryEnv": [
                 "bin"
