@@ -1,15 +1,20 @@
 name: Cleanup Workflows and Releases
 
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # 删除 releases 需要
-      actions: write         # 删除 workflow runs 需要
+      actions: write
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: 删除所有 workflow 运行记录
         run: |
           echo "Deleting workflow runs..."
