@@ -1,4 +1,4 @@
-name: Cleanup Workflows and Releases
+name: Cleanup Workflows and Releases (API-only)
 
 on:
   workflow_dispatch:
@@ -11,31 +11,35 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: 删除所有 workflow 运行记录
         run: |
           echo "Deleting workflow runs..."
-          gh run list --limit 1000 --json databaseId --jq '.[].databaseId' | while read run_id; do
-            echo "Deleting run $run_id"
-            gh run delete $run_id --yes || true
-          done
+          gh api -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/actions/runs \
+            --paginate -q '.workflow_runs[].id' | while read run_id; do
+              echo "Deleting run $run_id"
+              gh api -X DELETE /repos/$REPO/actions/runs/$run_id || true
+            done
 
       - name: 删除所有 Releases
         run: |
           echo "Deleting releases..."
-          gh release list --limit 1000 --json name --jq '.[].name' | while read release; do
-            echo "Deleting release $release"
-            gh release delete "$release" --yes || true
-          done
+          gh api -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/releases \
+            --paginate -q '.[].id' | while read release_id; do
+              echo "Deleting release $release_id"
+              gh api -X DELETE /repos/$REPO/releases/$release_id || true
+            done
 
       - name: 删除所有 Tags
         run: |
           echo "Deleting tags..."
-          git fetch --tags
-          for tag in $(git tag); do
-            echo "Deleting tag $tag"
-            git push origin :refs/tags/$tag || true
-          done
+          gh api -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/git/refs/tags \
+            --paginate -q '.[].ref' | while read ref; do
+              tag="${ref#refs/tags/}"
+              echo "Deleting tag $tag"
+              gh api -X DELETE /repos/$REPO/git/refs/tags/$tag || true
+            done
