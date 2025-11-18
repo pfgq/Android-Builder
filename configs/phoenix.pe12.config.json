@@ -4,7 +4,7 @@
         "kernelSource": {
             "name": "k30p",
             "repo": "https://github.com/ApartTUSITU/kernel_xiaomi_sm8250_mod",
-            "branch": "backport-5.4-bpf",
+            "branch": "android15-lineage22-mod",
             "device": "lmi",
             "defconfig": "lmi_defconfig"
           },
