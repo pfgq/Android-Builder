@@ -4,7 +4,7 @@
         "kernelSource": {
             "name": "k30p",
             "repo": "https://github.com/liyafe1997/kernel_xiaomi_sm8250_mod",
-            "branch": "v20250927",
+            "branch": "20250927",
             "device": "lmi",
             "defconfig": "lmi_defconfig"
           },
@@ -45,7 +45,7 @@
             "branch": "master"
         }
           },
-          "enableKernelSU": true,
+          "enableKernelSU": false,
           "enableLXC": false
     }
 ]
