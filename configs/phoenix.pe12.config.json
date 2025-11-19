@@ -20,7 +20,7 @@
           {
             "repo": "https://github.com/kdrag0n/proton-clang",
             "branch": "master",
-            "name": "bin",
+            "name": "gas",
             "binaryEnv": [
                 "bin"
             ]
