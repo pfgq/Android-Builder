@@ -10,7 +10,7 @@
           },
           "toolchains": [
           {
-            "repo": "https://github.com/kdrag0n/proton-clang",
+            "repo": "https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone",
             "branch": "master",
             "name": "clang",
             "binaryEnv": [
