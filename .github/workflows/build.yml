@@ -236,6 +236,16 @@ jobs:
           echo "ARGS=$args" >> $GITHUB_OUTPUT
 
           echo "🤔 $args"
+      - name: 🩹 修补 kernel
+        working-directory: ${{ env.KERNEL_NAME }}
+        run: |
+          sed -i '/zspages += zone_page_state(zone, NR_ZSPAGES);/{
+          i\#ifdef NR_ZSPAGES
+          a\#else
+          a\                zspages += 0;
+          a\#endif
+          }' kernel/taskstats.c
+
 
       - name: 😋 Setup KernelSU
         working-directory: ${{ env.KERNEL_NAME }}
@@ -262,12 +272,8 @@ jobs:
           echo -e "CONFIG_KALLSYMS_ALL=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-          sed -i '/zspages += zone_page_state(zone, NR_ZSPAGES);/{
-i\#ifdef NR_ZSPAGES
-a\#else\
-\t\t\t\tzspages += 0;\
-\#endif
-}' kernel/taskstats.c
+
+          
 
 
       - name: 😋 Setup LXC docker
