@@ -279,9 +279,8 @@ jobs:
           a\#endif
           }' drivers/kernelsu/ksu.c
           sed -i 's/\bTWA_RESUME\b/0/g' drivers/kernelsu/allowlist.c
-          sed -i '/^[[:space:]]*put_task_struct(tsk);[[:space:]]*$/d' drivers/kernelsu/allowlist.c
-
-          
+          sed -i '/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*:[[:space:]]*$/ { N; s/\n[[:space:]]*}/\n;\n}/; }' drivers/kernelsu/allowlist.c
+ 
 
 
       - name: 😋 Setup LXC docker
