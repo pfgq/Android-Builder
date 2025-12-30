@@ -274,6 +274,13 @@ jobs:
           cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           #修补
+          set -euxo pipefail
+          git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU_patch.git /tmp/sukisu_patch
+          shopt -s nullglob
+          for p in /tmp/sukisu_patch/4.19/*.patch; do
+            echo "Apply: $p"
+            git am -3 "$p" || (git am --abort || true; git apply --3way "$p")
+          done
           
 
       - name: 😋 Setup LXC docker
