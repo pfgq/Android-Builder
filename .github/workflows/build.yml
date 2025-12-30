@@ -275,10 +275,7 @@ jobs:
 
           #修补
           set -euxo pipefail
-          PATCH_URL="https://github.com/SukiSU-Ultra/SukiSU_patch/raw/refs/heads/main/4.19/ksu_hooks_sukisu_4.19.patch"
-          curl -L "$PATCH_URL" -o /tmp/ksu_hooks_sukisu_4.19.patch
-          patch -p1 --forward --reject-file=- < /tmp/ksu_hooks_sukisu_4.19.patch
-
+          grep -R --line-number -E "SUSFS|KSU_SUSFS" -n kernel/ fs/ drivers/ include/ 2>/dev/null | head -n 50 || true
 
       - name: 😋 Setup LXC docker
         working-directory: ${{ env.KERNEL_NAME }}
