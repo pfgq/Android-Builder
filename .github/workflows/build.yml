@@ -262,8 +262,8 @@ jobs:
           fi
 
           # Apply new KernelSU patches
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
-          
+          curl -LSs "https://raw.githubusercontent.com/ApartTUSITU/SukiSU-Ultra/main/kernel/setup.sh" | bash -s ApartTUSITU
+
           echo -e "CONFIG_KSU_MANUAL_HOOK=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
           #echo -e "CONFIG_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
           #echo -e "CONFIG_HAVE_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
@@ -274,13 +274,7 @@ jobs:
           cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           #修补
-          sed -i '/MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);/{
-          i\#ifdef MODULE_IMPORT_NS
-          a\#endif
-          }' drivers/kernelsu/ksu.c
-          sed -i 's/\bTWA_RESUME\b/0/g' drivers/kernelsu/allowlist.c
-          sed -i 's/\bput_task_struct\b/put_task_stack/g' drivers/kernelsu/allowlist.c
-
+          
 
       - name: 😋 Setup LXC docker
         working-directory: ${{ env.KERNEL_NAME }}
