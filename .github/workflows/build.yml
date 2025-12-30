@@ -275,13 +275,10 @@ jobs:
 
           #修补
           set -euxo pipefail
-          git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU_patch.git /tmp/sukisu_patch
-          shopt -s nullglob
-          for p in /tmp/sukisu_patch/4.19/*.patch; do
-            echo "Apply: $p"
-            git am -3 "$p" || (git am --abort || true; git apply --3way "$p")
-          done
-          
+          PATCH_URL="https://github.com/SukiSU-Ultra/SukiSU_patch/raw/refs/heads/main/4.19/ksu_hooks_sukisu_4.19.patch"
+          curl -L "$PATCH_URL" -o /tmp/ksu_hooks_sukisu_4.19.patch
+          patch -p1 --forward --reject-file=- < /tmp/ksu_hooks_sukisu_4.19.patch
+
 
       - name: 😋 Setup LXC docker
         working-directory: ${{ env.KERNEL_NAME }}
