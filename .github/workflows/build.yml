@@ -278,6 +278,8 @@ jobs:
           i\#ifdef MODULE_IMPORT_NS
           a\#endif
           }' drivers/kernelsu/ksu.c
+          sed -i 's/\bTWA_RESUME\b/0/g' drivers/kernelsu/allowlist.c
+          sed -i '/^[[:space:]]*put_task_struct(tsk);[[:space:]]*$/d' drivers/kernelsu/allowlist.c
 
           
 
