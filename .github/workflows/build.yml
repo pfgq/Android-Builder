@@ -274,59 +274,6 @@ jobs:
           cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           #修补
-                    # ===== Replace SUSFS-related files from ApartTUSITU/kernel_xiaomi_sm8250_mod =====
-          set -euxo pipefail
-
-          SRC_REPO="https://github.com/ApartTUSITU/kernel_xiaomi_sm8250_mod.git"
-          # 你之前用过 android16-aptusitu（你也可以改成 android16-aptusitu-new 或你需要的分支）
-          SRC_BRANCH="android16-aptusitu"
-
-          rm -rf /tmp/aptusitu_susfs
-          git clone --filter=blob:none --no-checkout --depth=1 -b "$SRC_BRANCH" "$SRC_REPO" /tmp/aptusitu_susfs
-          cd /tmp/aptusitu_susfs
-          git sparse-checkout init --cone
-
-          # 只拉 SUSFS 常见相关路径（按你之前 grep 到的文件分布）
-          git sparse-checkout set \
-            fs/susfs.c \
-            fs/proc_namespace.c \
-            fs/overlayfs \
-            include/linux/susfs.h \
-            kernel/kallsyms.c \
-            kernel/sys.c \
-            drivers/kernelsu
-
-          git checkout
-
-          # 回到你的内核树（Actions 里这个目录就是 ${{ env.KERNEL_NAME }}）
-          cd -
-
-          # 覆盖复制（不提交）
-          # 注意：overlayfs 是目录，用 -r；drivers/kernelsu 也是目录
-          cp -f /tmp/aptusitu_susfs/fs/susfs.c ./fs/susfs.c || true
-          cp -f /tmp/aptusitu_susfs/fs/proc_namespace.c ./fs/proc_namespace.c || true
-
-          if [ -d /tmp/aptusitu_susfs/fs/overlayfs ]; then
-            cp -rf /tmp/aptusitu_susfs/fs/overlayfs ./fs/
-          fi
-
-          mkdir -p ./include/linux
-          cp -f /tmp/aptusitu_susfs/include/linux/susfs.h ./include/linux/susfs.h || true
-
-          cp -f /tmp/aptusitu_susfs/kernel/kallsyms.c ./kernel/kallsyms.c || true
-          cp -f /tmp/aptusitu_susfs/kernel/sys.c ./kernel/sys.c || true
-
-          if [ -d /tmp/aptusitu_susfs/drivers/kernelsu ]; then
-            mkdir -p ./drivers
-            cp -rf /tmp/aptusitu_susfs/drivers/kernelsu ./drivers/
-          fi
-
-          # 自检：确保关键宏/命令号存在（你之前报错就是这块缺）
-          echo "Check SUSFS headers:"
-          grep -n "SUSFS_MAGIC" -n ./include/linux/susfs.h || true
-          grep -n "CMD_SUSFS_"  -n ./include/linux/susfs.h | head -n 20 || true
-
-        
           
       - name: 😋 Setup LXC docker
         working-directory: ${{ env.KERNEL_NAME }}
