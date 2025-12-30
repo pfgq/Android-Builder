@@ -274,64 +274,60 @@ jobs:
           cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           #修补
-                    # ===== Apply SUSFS patches (susfs4ksu, non-GKI) =====
+                    # ===== Replace SUSFS-related files from ApartTUSITU/kernel_xiaomi_sm8250_mod =====
           set -euxo pipefail
 
-          # 1) 定位 KernelSU 目录（你的 setup.sh 可能生成 KernelSU/ 或 drivers/kernelsu/）
-          KSU_DIR=""
-          if [ -d "./KernelSU" ]; then
-            KSU_DIR="./KernelSU"
-          elif [ -d "./drivers/kernelsu" ]; then
-            KSU_DIR="./drivers/kernelsu"
-          else
-            echo "ERROR: KernelSU dir not found (KernelSU/ or drivers/kernelsu/)."
-            exit 1
+          SRC_REPO="https://github.com/ApartTUSITU/kernel_xiaomi_sm8250_mod.git"
+          # 你之前用过 android16-aptusitu（你也可以改成 android16-aptusitu-new 或你需要的分支）
+          SRC_BRANCH="android16-aptusitu"
+
+          rm -rf /tmp/aptusitu_susfs
+          git clone --filter=blob:none --no-checkout --depth=1 -b "$SRC_BRANCH" "$SRC_REPO" /tmp/aptusitu_susfs
+          cd /tmp/aptusitu_susfs
+          git sparse-checkout init --cone
+
+          # 只拉 SUSFS 常见相关路径（按你之前 grep 到的文件分布）
+          git sparse-checkout set \
+            fs/susfs.c \
+            fs/proc_namespace.c \
+            fs/overlayfs \
+            include/linux/susfs.h \
+            kernel/kallsyms.c \
+            kernel/sys.c \
+            drivers/kernelsu
+
+          git checkout
+
+          # 回到你的内核树（Actions 里这个目录就是 ${{ env.KERNEL_NAME }}）
+          cd -
+
+          # 覆盖复制（不提交）
+          # 注意：overlayfs 是目录，用 -r；drivers/kernelsu 也是目录
+          cp -f /tmp/aptusitu_susfs/fs/susfs.c ./fs/susfs.c || true
+          cp -f /tmp/aptusitu_susfs/fs/proc_namespace.c ./fs/proc_namespace.c || true
+
+          if [ -d /tmp/aptusitu_susfs/fs/overlayfs ]; then
+            cp -rf /tmp/aptusitu_susfs/fs/overlayfs ./fs/
           fi
-          echo "KernelSU dir: $KSU_DIR"
 
-          # 2) 拉 susfs4ksu（kernel-4.19 分支）
-          rm -rf /tmp/susfs4ksu
-          git clone --depth=1 -b kernel-4.19 https://gitlab.com/simonpunk/susfs4ksu.git /tmp/susfs4ksu
+          mkdir -p ./include/linux
+          cp -f /tmp/aptusitu_susfs/include/linux/susfs.h ./include/linux/susfs.h || true
 
-          # 3) README 要求：禁用 kprobe hooks（把 #ifdef CONFIG_KPROBES 改成 #if defined(CONFIG_KPROBES) && 0）
-          find "$KSU_DIR" -type f \( -name '*.c' -o -name '*.h' \) -print0 | \
-            xargs -0 sed -i 's/^#ifdef CONFIG_KPROBES$/#if defined(CONFIG_KPROBES) \&\& 0/'
+          cp -f /tmp/aptusitu_susfs/kernel/kallsyms.c ./kernel/kallsyms.c || true
+          cp -f /tmp/aptusitu_susfs/kernel/sys.c ./kernel/sys.c || true
 
-          # 4) 拷贝 susfs4ksu 的内核文件（覆盖同名文件）
-          cp -f /tmp/susfs4ksu/kernel_patches/fs/* ./fs/
-          cp -f /tmp/susfs4ksu/kernel_patches/include/linux/* ./include/linux/
-
-          # 5) 拷贝并准备两个 patch：KernelSU patch + kernel patch(4.19)
-          cp -f /tmp/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch "$KSU_DIR/10_enable_susfs_for_ksu.patch"
-
-          KPATCH="$(ls -1 /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-*.patch | grep -E '4\.19|4_19|4-19' | head -n 1 || true)"
-          if [ -z "$KPATCH" ]; then
-            echo "ERROR: cannot find 4.19 patch: /tmp/susfs4ksu/kernel_patches/50_add_susfs_in_kernel-*.patch"
-            ls -la /tmp/susfs4ksu/kernel_patches/ || true
-            exit 1
+          if [ -d /tmp/aptusitu_susfs/drivers/kernelsu ]; then
+            mkdir -p ./drivers
+            cp -rf /tmp/aptusitu_susfs/drivers/kernelsu ./drivers/
           fi
-          cp -f "$KPATCH" ./50_add_susfs_in_kernel.patch
 
-          # 6) 幂等打补丁：已应用就跳过，否则 patch -p1
-          apply_patch_idempotent () {
-            local dir="$1"
-            local patchfile="$2"
-            cd "$dir"
-            if patch -p1 --dry-run -R < "$patchfile" >/dev/null 2>&1; then
-              echo "Already applied: $patchfile"
-              return 0
-            fi
-            echo "Applying: $patchfile in $dir"
-            patch -p1 --forward < "$patchfile"
-          }
+          # 自检：确保关键宏/命令号存在（你之前报错就是这块缺）
+          echo "Check SUSFS headers:"
+          grep -n "SUSFS_MAGIC" -n ./include/linux/susfs.h || true
+          grep -n "CMD_SUSFS_"  -n ./include/linux/susfs.h | head -n 20 || true
 
-          apply_patch_idempotent "$KSU_DIR" "10_enable_susfs_for_ksu.patch"
-          apply_patch_idempotent "." "./50_add_susfs_in_kernel.patch"
-
-          # 7) 简单自检（可选）
-          test -f fs/susfs.c && echo "OK: fs/susfs.c exists"
-          grep -R --line-number -E "SUSFS_MAGIC|CMD_SUSFS_" include/linux 2>/dev/null | head -n 30 || true
-
+        
+          
       - name: 😋 Setup LXC docker
         working-directory: ${{ env.KERNEL_NAME }}
         env:
