@@ -411,6 +411,7 @@ jobs:
             -e MI_RECLAIM \
             -e RTMM \
             -e KSU \
+            -e KSU_SUSFS \
             -e KPM
           make ${{ env.ARGS }} scripts
           make ${{ env.ARGS }} modules_prepare
