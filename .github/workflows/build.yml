@@ -322,7 +322,7 @@ jobs:
         env:
           ARGS: ${{ steps.generate-args.outputs.ARGS }}
         run: |
-          # curl -LSs "https://raw.githubusercontent.com/pfgq/qudong/refs/heads/main/kernel/build.sh" | bash
+          curl -LSs "https://raw.githubusercontent.com/pfgq/qudong/refs/heads/main/kernel/build.sh" | bash
           echo "🤔 PATH Variable: $PATH"
           export KBUILD_BUILD_HOST=Github-Action
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
