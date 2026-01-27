@@ -318,6 +318,46 @@ jobs:
             echo "🎖️ Apply xt_qtaguid.patch"
           fi
 
+          
+      - name: 🛠️ Configure Kernel (Kprobes & Disable Modversions)
+        run: |
+          DEFCONFIG="arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}"
+          
+          echo "[*] 开始修改内核配置: $DEFCONFIG"
+          
+          # 1. 强制关闭版本指纹校验 (解决 Invalid argument 的核心)
+          # 使用 sed 替换已存在的 y 为 n，并确保没有重复项
+          sed -i 's/CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/g' $DEFCONFIG
+          if ! grep -q "CONFIG_MODVERSIONS=n" $DEFCONFIG; then
+              echo "CONFIG_MODVERSIONS=n" >> $DEFCONFIG
+          fi
+
+          # 2. 强制开启 KPROBES 相关配置
+          for cfg in CONFIG_KPROBES CONFIG_HAVE_KPROBES CONFIG_KPROBE_EVENTS CONFIG_KALLSYMS CONFIG_KALLSYMS_ALL; do
+              sed -i "/$cfg/d" $DEFCONFIG
+              echo "$cfg=y" >> $DEFCONFIG
+          done
+
+          # 3. 针对 Kconfig 源码进行暴力修改 (防止内核编译脚本强制 select MODVERSIONS)
+          # 这能解决 "明明改了 config 但编译出来还是 y" 的问题
+          echo "[*] 正在扫描并移除 Kconfig 中的强制版本校验逻辑..."
+          find . -name "Kconfig*" -exec sed -i 's/select MODVERSIONS//g' {} +
+
+          echo "[+] 内核配置修改完成！"
+        if: success()
+
+      - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
+        env:
+          ANYKERNEL3_FILE: "${{ env.WORKSPACE }}/AnyKernel3-${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}"
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        if: ${{ env.USE_ANYKERNEL3 == 'true' && env.CONFIRM_RELEASE == 'true' }}
+        with:
+          tag_name: v${{ env.BUILD_DATE }}.${{ github.run_number }}
+          files: "${{ env.ANYKERNEL3_FILE }}.zip"
+          body: "[Kernelname]:仅带ksu [Kernelname]-both:带ksu+LXC docker\n[Update]: 已开启 KPROBES 并关闭 MODVERSIONS 以支持自定义驱动。"
+          generate_release_notes: false
+
       - name: 👍 Start building the kernel
         working-directory: ${{ env.KERNEL_NAME }}
         env:
