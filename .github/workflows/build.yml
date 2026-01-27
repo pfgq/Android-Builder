@@ -408,6 +408,11 @@ jobs:
             -e BOOTUP_RECLAIM \
             -e MI_RECLAIM \
             -e RTMM \
+            -e KPROBES \
+            -e KRETPROBES \
+            -e KPROBE_EVENTS \
+            -e KALLSYMS \
+            -e KALLSYMS_ALL \
             -e KSU \
             -e KSU_MANUAL_HOOK \
             -e KSU_SUSFS_HAS_MAGIC_MOUNT \
