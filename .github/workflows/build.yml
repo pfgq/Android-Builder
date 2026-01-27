@@ -321,16 +321,22 @@ jobs:
           
       - name: 🛠️ Configure Kernel (Kprobes & Disable Modversions)
         run: |
-          DEFCONFIG="arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}"
+          
+          DEFCONFIG="arch/arm64/configs/${{ env.KERNEL_DEFCONFIG_PATH }}"
+          
+          if [ ! -f "$DEFCONFIG" ]; then
+              echo "[-] 错误: 找不到配置文件 $DEFCONFIG"
+              exit 1
+          fi
           
           echo "[*] 开始修改内核配置: $DEFCONFIG"
           
-          # 1. 强制关闭版本指纹校验 (解决 Invalid argument 的核心)
-          # 使用 sed 替换已存在的 y 为 n，并确保没有重复项
+          # 1. 强制关闭版本指纹校验
           sed -i 's/CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/g' $DEFCONFIG
-          if ! grep -q "CONFIG_MODVERSIONS=n" $DEFCONFIG; then
-              echo "CONFIG_MODVERSIONS=n" >> $DEFCONFIG
-          fi
+          # 确保即便原来没有也能加上 n
+          grep -q "CONFIG_MODVERSIONS=" $DEFCONFIG || echo "CONFIG_MODVERSIONS=n" >> $DEFCONFIG
+          # 再次确保由于 Kconfig 逻辑导致的默认开启被覆盖
+          sed -i 's/^CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/' $DEFCONFIG
 
           # 2. 强制开启 KPROBES 相关配置
           for cfg in CONFIG_KPROBES CONFIG_HAVE_KPROBES CONFIG_KPROBE_EVENTS CONFIG_KALLSYMS CONFIG_KALLSYMS_ALL; do
@@ -338,10 +344,10 @@ jobs:
               echo "$cfg=y" >> $DEFCONFIG
           done
 
-          # 3. 针对 Kconfig 源码进行暴力修改 (防止内核编译脚本强制 select MODVERSIONS)
-          # 这能解决 "明明改了 config 但编译出来还是 y" 的问题
-          echo "[*] 正在扫描并移除 Kconfig 中的强制版本校验逻辑..."
-          find . -name "Kconfig*" -exec sed -i 's/select MODVERSIONS//g' {} +
+          # 3. 暴力修改所有 Kconfig 源码
+          echo "[*] 正在扫描并移除 Kconfig 中的强制 select 逻辑..."
+          # 使用更安全的 find 命令
+          find . -type f -name "Kconfig*" -print0 | xargs -0 sed -i 's/select MODVERSIONS//g'
 
           echo "[+] 内核配置修改完成！"
         if: success()
