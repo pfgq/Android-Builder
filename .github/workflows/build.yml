@@ -322,7 +322,7 @@ jobs:
       - name: 🛠️ Configure Kernel (Kprobes & Disable Modversions)
         run: |
           
-          DEFCONFIG="arch/arm64/configs/${{ env.KERNEL_DEFCONFIG_PATH }}"
+          DEFCONFIG="${{ env.WORKSPACE }}/${{ env.KERNEL_NAME }}/arch/${{ steps.generate-args.outputs.ARCH }}/configs/${{env.KERNEL_DEFCONFIG_PATH}}"
           
           if [ ! -f "$DEFCONFIG" ]; then
               echo "[-] 错误: 找不到配置文件 $DEFCONFIG"
