@@ -264,14 +264,8 @@ jobs:
           # Apply new KernelSU patches
           curl -LSs "https://github.com/liyafe1997/SukiSU-Ultra/raw/4ff14cf0051d04209c4abd5027d99d8e7780ef5b/kernel/setup.sh" | bash -s f4863b20cc8dc0f8cc67418980f022e43014b598
           echo -e "CONFIG_KSU_MANUAL_HOOK=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-          echo -e "CONFIG_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-          echo -e "CONFIG_HAVE_KPROBES=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-          echo -e "CONFIG_KPROBE_EVENTS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
           echo -e "CONFIG_KALLSYMS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
           echo -e "CONFIG_KALLSYMS_ALL=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-          echo -e "CONFIG_MODVERSIONS=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
-
-          cat arch/${{ env.ARCH }}/configs/${{ env.KERNEL_DEFCONFIG_PATH }}
 
           #修补
           
@@ -318,39 +312,6 @@ jobs:
             echo "🎖️ Apply xt_qtaguid.patch"
           fi
 
-          
-      - name: 🛠️ Configure Kernel (Kprobes & Disable Modversions)
-        run: |
-          
-          DEFCONFIG="${{ env.WORKSPACE }}/${{ env.KERNEL_NAME }}/arch/${{ steps.generate-args.outputs.ARCH }}/configs/${{env.KERNEL_DEFCONFIG_PATH}}"
-          
-          if [ ! -f "$DEFCONFIG" ]; then
-              echo "[-] 错误: 找不到配置文件 $DEFCONFIG"
-              exit 1
-          fi
-          
-          echo "[*] 开始修改内核配置: $DEFCONFIG"
-          
-          # 1. 强制关闭版本指纹校验
-          sed -i 's/CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/g' $DEFCONFIG
-          # 确保即便原来没有也能加上 n
-          grep -q "CONFIG_MODVERSIONS=" $DEFCONFIG || echo "CONFIG_MODVERSIONS=n" >> $DEFCONFIG
-          # 再次确保由于 Kconfig 逻辑导致的默认开启被覆盖
-          sed -i 's/^CONFIG_MODVERSIONS=y/CONFIG_MODVERSIONS=n/' $DEFCONFIG
-
-          # 2. 强制开启 KPROBES 相关配置
-          for cfg in CONFIG_KPROBES CONFIG_HAVE_KPROBES CONFIG_KPROBE_EVENTS CONFIG_KALLSYMS CONFIG_KALLSYMS_ALL; do
-              sed -i "/$cfg/d" $DEFCONFIG
-              echo "$cfg=y" >> $DEFCONFIG
-          done
-
-          # 3. 暴力修改所有 Kconfig 源码
-          echo "[*] 正在扫描并移除 Kconfig 中的强制 select 逻辑..."
-          # 使用更安全的 find 命令
-          find . -type f -name "Kconfig*" -print0 | xargs -0 sed -i 's/select MODVERSIONS//g'
-
-          echo "[+] 内核配置修改完成！"
-        if: success()
 
       - name: 🧧 Create GitHub Release => (${{ env.BUILD_DATE }})
         env:
@@ -425,6 +386,17 @@ jobs:
           sed -i '/^CONFIG_ZRAM/d;/^CONFIG_ZRAM_WRITEBACK/d' arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM is not set' >> arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM_WRITEBACK is not set' >> arch/arm64/configs/lmi_defconfig
+          # 1. 强制关闭版本校验 (关键：必须确保只有这一行生效)
+          # 先尝试删除可能存在的开启项，然后追加禁用标志
+          sed -i '/CONFIG_MODVERSIONS/d' arch/arm64/configs/lmi_defconfig
+          echo '# CONFIG_MODVERSIONS is not set' >> arch/arm64/configs/lmi_defconfig
+          echo 'CONFIG_MODVERSIONS=n' >> arch/arm64/configs/lmi_defconfig
+
+          # 2. 强制开启 KPROBES 相关 (绝对地址)
+          echo 'CONFIG_KPROBES=y' >> arch/arm64/configs/lmi_defconfig
+          echo 'CONFIG_HAVE_KPROBES=y' >> arch/arm64/configs/lmi_defconfig
+          echo 'CONFIG_KPROBE_EVENTS=y' >> arch/arm64/configs/lmi_defconfig
+          
 
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
