@@ -330,7 +330,7 @@ jobs:
         env:
           ARGS: ${{ steps.generate-args.outputs.ARGS }}
         run: |
-          curl -LSs "https://raw.githubusercontent.com/pfgq/qudong/refs/heads/main/kernel/setup.sh" | bash
+          #curl -LSs "https://raw.githubusercontent.com/pfgq/qudong/refs/heads/main/kernel/setup.sh" | bash
           echo "🤔 PATH Variable: $PATH"
           export KBUILD_BUILD_HOST=Github-Action
           export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
@@ -386,30 +386,6 @@ jobs:
           sed -i '/^CONFIG_ZRAM/d;/^CONFIG_ZRAM_WRITEBACK/d' arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM is not set' >> arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM_WRITEBACK is not set' >> arch/arm64/configs/lmi_defconfig
-          # 1. 强制关闭版本校验 (关键：必须确保只有这一行生效)
-          # 先尝试删除可能存在的开启项，然后追加禁用标志
-          sed -i '/CONFIG_MODVERSIONS/d' arch/arm64/configs/lmi_stock-defconfig
-          echo '# CONFIG_MODVERSIONS is not set' >> arch/arm64/configs/lmi_stock-defconfig
-          echo 'CONFIG_MODVERSIONS=n' >> arch/arm64/configs/lmi_stock-defconfig
-          echo 'CONFIG_MODULE_SIG=n' >> arch/arm64/configs/lmi_defconfig
-          echo 'CONFIG_MODULE_SIG_SHA512=n' >> arch/arm64/configs/lmi_defconfig
-          echo '# CONFIG_MODULE_SIG is not set' >> arch/arm64/configs/lmi_defconfig
-          echo '# CONFIG_MODULE_SIG_SHA512 is not set' >> arch/arm64/configs/lmi_defconfig
-          sed -i 's/^CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/' arch/arm64/configs/lmi_stock-defconfig
-          sed -i 's/^CONFIG_MODULE_SIG_ALL=y/CONFIG_MODULE_SIG_ALL=n/' arch/arm64/configs/lmi_stock-defconfig
-          sed -i 's/^CONFIG_MODULE_SIG_SHA512=y/CONFIG_MODULE_SIG_SHA512=n/' arch/arm64/configs/lmi_stock-defconfig
-          echo '# CONFIG_MODULE_SIG is not set' >> arch/arm64/configs/lmi_stock-defconfig
-          echo '# CONFIG_MODULE_SIG_ALL is not set' >> arch/arm64/configs/lmi_stock-defconfig
-          echo '# CONFIG_MODULE_SIG_SHA512 is not set' >> arch/arm64/configs/lmi_stock-defconfig
-
-
-
-          # 2. 强制开启 KPROBES 相关 (绝对地址)
-          echo 'CONFIG_KPROBES=y' >> arch/arm64/configs/lmi_stock-defconfig
-          echo 'CONFIG_HAVE_KPROBES=y' >> arch/arm64/configs/lmi_stock-defconfig
-          echo 'CONFIG_KPROBE_EVENTS=y' >> arch/arm64/configs/lmi_stock-defconfig
-          
-
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
             --set-str STATIC_USERMODEHELPER_PATH /system/bin/micd \
