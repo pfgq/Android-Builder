@@ -391,6 +391,18 @@ jobs:
           sed -i '/CONFIG_MODVERSIONS/d' arch/arm64/configs/lmi_stock-defconfig
           echo '# CONFIG_MODVERSIONS is not set' >> arch/arm64/configs/lmi_stock-defconfig
           echo 'CONFIG_MODVERSIONS=n' >> arch/arm64/configs/lmi_stock-defconfig
+          echo 'CONFIG_MODULE_SIG=n' >> arch/arm64/configs/lmi_defconfig
+          echo 'CONFIG_MODULE_SIG_SHA512=n' >> arch/arm64/configs/lmi_defconfig
+          echo '# CONFIG_MODULE_SIG is not set' >> arch/arm64/configs/lmi_defconfig
+          echo '# CONFIG_MODULE_SIG_SHA512 is not set' >> arch/arm64/configs/lmi_defconfig
+          sed -i 's/^CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/' arch/arm64/configs/lmi_stock-defconfig
+          sed -i 's/^CONFIG_MODULE_SIG_ALL=y/CONFIG_MODULE_SIG_ALL=n/' arch/arm64/configs/lmi_stock-defconfig
+          sed -i 's/^CONFIG_MODULE_SIG_SHA512=y/CONFIG_MODULE_SIG_SHA512=n/' arch/arm64/configs/lmi_stock-defconfig
+          echo '# CONFIG_MODULE_SIG is not set' >> arch/arm64/configs/lmi_stock-defconfig
+          echo '# CONFIG_MODULE_SIG_ALL is not set' >> arch/arm64/configs/lmi_stock-defconfig
+          echo '# CONFIG_MODULE_SIG_SHA512 is not set' >> arch/arm64/configs/lmi_stock-defconfig
+
+
 
           # 2. 强制开启 KPROBES 相关 (绝对地址)
           echo 'CONFIG_KPROBES=y' >> arch/arm64/configs/lmi_stock-defconfig
@@ -427,7 +439,6 @@ jobs:
             -e BOOTUP_RECLAIM \
             -e MI_RECLAIM \
             -e RTMM \
-            -e KPROBES \
             -e KRETPROBES \
             -e KPROBE_EVENTS \
             -e KSU \
