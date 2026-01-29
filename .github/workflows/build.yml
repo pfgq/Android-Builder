@@ -386,6 +386,8 @@ jobs:
           sed -i '/^CONFIG_ZRAM/d;/^CONFIG_ZRAM_WRITEBACK/d' arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM is not set' >> arch/arm64/configs/lmi_defconfig
           echo '# CONFIG_ZRAM_WRITEBACK is not set' >> arch/arm64/configs/lmi_defconfig
+          sed -i 's/^# CONFIG_KPROBES is not set/CONFIG_KPROBES=y/' arch/arm64/configs/lmi_stock-defconfig
+
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
             --set-str STATIC_USERMODEHELPER_PATH /system/bin/micd \
