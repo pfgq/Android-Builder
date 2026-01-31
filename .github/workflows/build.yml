@@ -390,6 +390,11 @@ jobs:
           sed -i 's/^# CONFIG_KPROBES is not set/CONFIG_KPROBES=y/' arch/arm64/configs/lmi_stock-defconfig
           echo -e 'CONFIG_KPROBE_EVENTS=y' >> arch/arm64/configs/lmi_stock-defconfig
           sed -i 's/sysctl_perf_event_paranoid __read_mostly = 2;/sysctl_perf_event_paranoid __read_mostly = 3;/' kernel/events/core.c
+          #禁用perf
+          sed -i '/if (bp->attr.type != PERF_TYPE_BREAKPOINT)/a \
+          \    if (!capable(CAP_SYS_ADMIN)) {\n\
+          \        return -EPERM;\n\
+          \    }\n' kernel/events/hw_breakpoint.c
 
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
