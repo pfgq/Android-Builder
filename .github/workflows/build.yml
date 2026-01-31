@@ -391,11 +391,11 @@ jobs:
           echo -e 'CONFIG_KPROBE_EVENTS=y' >> arch/arm64/configs/lmi_stock-defconfig
           sed -i 's/sysctl_perf_event_paranoid __read_mostly = 2;/sysctl_perf_event_paranoid __read_mostly = 3;/' kernel/events/core.c
           #禁用perf
+          sed -i '/#include <linux\/hw_breakpoint.h>/a \
+          \n/* hwhook whitelist: only allow this handler */\nextern void hwhook_handler(struct perf_event *, struct perf_sample_data *, struct pt_regs *);\n' kernel/events/hw_breakpoint.c
           sed -i '/if (bp->attr.type != PERF_TYPE_BREAKPOINT)/a \
-          \    if (bp->ctx && bp->ctx->task) {\n\
-          \        if (!capable(CAP_SYS_ADMIN))\n\
-          \            return -EPERM;\n\
-          \    }\n' kernel/events/hw_breakpoint.c
+          \n    /* Only allow HWBP created by hwhook module */\n    if (bp->overflow_handler != hwhook_handler)\n        return -EPERM;\n' kernel/events/hw_breakpoint.c
+
 
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
