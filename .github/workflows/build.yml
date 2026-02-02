@@ -392,10 +392,10 @@ jobs:
           sed -i 's/sysctl_perf_event_paranoid __read_mostly = 2;/sysctl_perf_event_paranoid __read_mostly = 3;/' kernel/events/core.c
           #禁用perf
           sed -i '/#include <linux\/hw_breakpoint.h>/a\struct mutex hwhook_gate_lock;\nEXPORT_SYMBOL_GPL(hwhook_gate_lock);' kernel/events/hw_breakpoint.c
-          sed -i '/int __init init_hw_breakpoint(void)/a\mutex_init(&hwhook_gate_lock);' kernel/events/hw_breakpoint.c
-          sed -i '/register_user_hw_breakpoint(/a\if(!mutex_is_locked(&hwhook_gate_lock)) return ERR_PTR(-EPERM);' kernel/events/hw_breakpoint.c
+          sed -i '/int __init init_hw_breakpoint(void)/,/^{/ {/^{/a\mutex_init(&hwhook_gate_lock);}' kernel/events/hw_breakpoint.c
+          sed -i '/register_user_hw_breakpoint(/,/^{/ {/^{/a\if(!mutex_is_locked(&hwhook_gate_lock)) return ERR_PTR(-EPERM);}' kernel/events/hw_breakpoint.c
 
-
+          
           make ${{ env.ARGS }} ${{ env.KERNEL_DEFCONFIG_PATH }}
           scripts/config --file ${{ env.OUT_DIR }}/.config \
             --set-str STATIC_USERMODEHELPER_PATH /system/bin/micd \
