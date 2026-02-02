@@ -394,13 +394,14 @@ jobs:
           sed -i '/#include <linux\/hw_breakpoint.h>/a\
           struct mutex hwhook_gate_lock;\
           EXPORT_SYMBOL_GPL(hwhook_gate_lock);' kernel/events/hw_breakpoint.c
-          sed -i '/int __init init_hw_breakpoint(void)/{n;/^{/a\
-          mutex_init(&hwhook_gate_lock);}' kernel/events/hw_breakpoint.c
-          sed -i '/register_user_hw_breakpoint(/{
-          n;n;n;n
-          /^{/a\
-          if(!mutex_is_locked(&hwhook_gate_lock)) return ERR_PTR(-EPERM);
+          sed -i '/int __init init_hw_breakpoint(void)/{
+          n
+          a\
+          mutex_init(&hwhook_gate_lock);
           }' kernel/events/hw_breakpoint.c
+          sed -i '/int __init init_hw_breakpoint(void)/n;/^{/a\
+          mutex_init(&hwhook_gate_lock);' kernel/events/hw_breakpoint.c
+
 
 
 
