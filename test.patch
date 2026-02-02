@@ -1,17 +1,17 @@
 diff --git a/kernel/events/hw_breakpoint.c b/kernel/events/hw_breakpoint.c
-index 0000000..1111111 100644
 --- a/kernel/events/hw_breakpoint.c
 +++ b/kernel/events/hw_breakpoint.c
-@@ -36,6 +36,9 @@
- 
+@@
  #include <linux/hw_breakpoint.h>
 +
 +struct mutex hwhook_gate_lock;
 +EXPORT_SYMBOL_GPL(hwhook_gate_lock);
++
  /*
   * Constraints data
   */
-@@ -452,6 +455,9 @@ register_user_hw_breakpoint(struct perf_event_attr *attr,
+@@
+ register_user_hw_breakpoint(struct perf_event_attr *attr,
  			    perf_overflow_handler_t triggered,
  			    void *context,
  			    struct task_struct *tsk)
@@ -22,7 +22,9 @@ index 0000000..1111111 100644
  	return perf_event_create_kernel_counter(attr, -1, tsk, triggered,
  						context);
  }
-@@ -706,6 +712,8 @@ int __init init_hw_breakpoint(void)
+@@
+ int __init init_hw_breakpoint(void)
+ {
  	int cpu, err_cpu;
  	int i;
  
