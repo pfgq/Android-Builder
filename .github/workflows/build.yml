@@ -391,7 +391,7 @@ jobs:
           echo -e 'CONFIG_KPROBE_EVENTS=y' >> arch/arm64/configs/lmi_stock-defconfig
           sed -i 's/sysctl_perf_event_paranoid __read_mostly = 2;/sysctl_perf_event_paranoid __read_mostly = 3;/' kernel/events/core.c
           #禁用perf
-          wget https://raw.githubusercontent.com/pfgq/Android-Builder/refs/heads/main/test.patch
+          curl -L -o test.patch https://raw.githubusercontent.com/pfgq/Android-Builder/main/test.patch
           git apply test.patch
 
 
